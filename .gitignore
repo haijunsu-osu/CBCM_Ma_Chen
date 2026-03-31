@@ -1,0 +1,17 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Data files
+mechanism_data.json
+
+# Local reference materials
+reference/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Scraping scripts
+extract_pdf.py

@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CBCM 4-Bar Mechanism Animation</title>
+    <meta name="description" content="Interactive animation of a partially compliant four-bar mechanism analyzed using Chained Beam-Constraint Model (CBCM)">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-secondary: #111827;
+            --bg-card: #1a2235;
+            --bg-card-hover: #1f2a40;
+            --accent: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.3);
+            --accent2: #22d3ee;
+            --accent2-glow: rgba(34, 211, 238, 0.2);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --beam-color: #f59e0b;
+            --beam-glow: rgba(245, 158, 11, 0.4);
+            --rigid-color: #6366f1;
+            --pin-color: #22d3ee;
+            --ground-color: #475569;
+            --torque-pos: #34d399;
+            --torque-neg: #f87171;
+            --border: rgba(148, 163, 184, 0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .app-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        header h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.02em;
+            margin-bottom: 6px;
+        }
+
+        header p {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            font-weight: 300;
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 24px;
+            align-items: start;
+        }
+
+        @media (max-width: 1000px) {
+            .main-layout { grid-template-columns: 1fr; }
+        }
+
+        .canvas-wrapper {
+            background: var(--bg-card);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            padding: 16px;
+            position: relative;
+            box-shadow: 0 4px 30px rgba(0,0,0,0.3);
+        }
+
+        canvas#mechCanvas {
+            width: 100%;
+            background: radial-gradient(ellipse at center, #0f172a 0%, #0a0e17 100%);
+            border-radius: 12px;
+            display: block;
+        }
+
+        .controls-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 14px;
+            padding: 0 4px;
+        }
+
+        .btn {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            border-radius: 10px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--accent);
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .btn svg { width: 16px; height: 16px; }
+
+        .slider-group {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slider-group label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            flex: 1;
+            height: 4px;
+            background: var(--bg-secondary);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            box-shadow: 0 0 8px var(--accent-glow);
+        }
+
+        .angle-display {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--accent2);
+            min-width: 60px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            padding: 18px;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.2);
+        }
+
+        .card h3 {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin-bottom: 14px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+        }
+
+        .stat-row + .stat-row {
+            border-top: 1px solid var(--border);
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .stat-value {
+            font-size: 0.85rem;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .torque-chart-container {
+            height: 140px;
+            position: relative;
+        }
+
+        canvas#torqueCanvas {
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+        }
+
+        .speed-controls {
+            display: flex;
+            gap: 6px;
+        }
+
+        .speed-btn {
+            padding: 4px 10px;
+            font-size: 0.7rem;
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .speed-btn:hover, .speed-btn.active {
+            color: var(--text-primary);
+            border-color: var(--accent);
+            background: rgba(99, 102, 241, 0.15);
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .legend-line {
+            width: 18px;
+            height: 3px;
+            border-radius: 2px;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--bg-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            transition: opacity 0.5s;
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .ground-hatch {
+            stroke: var(--ground-color);
+            stroke-width: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+    </div>
+
+    <div class="app-container">
+        <header>
+            <h1>Partially Compliant 4-Bar Mechanism</h1>
+            <p>CBCM Analysis (Ma &amp; Chen, JMR 2016) — Example 4.2.1</p>
+        </header>
+
+        <div class="main-layout">
+            <div class="canvas-wrapper">
+                <canvas id="mechCanvas"></canvas>
+                <div class="controls-bar">
+                    <button class="btn" id="btnPlay" title="Play / Pause">
+                        <svg viewBox="0 0 24 24" fill="currentColor" id="playIcon">
+                            <polygon points="6,4 20,12 6,20"/>
+                        </svg>
+                        <span id="playLabel">Play</span>
+                    </button>
+                    <button class="btn" id="btnStep" title="Step Forward">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <polygon points="4,4 16,12 4,20"/>
+                            <rect x="17" y="4" width="3" height="16"/>
+                        </svg>
+                    </button>
+                    <div class="slider-group">
+                        <label>θ₁</label>
+                        <input type="range" id="angleSlider" min="0" max="359" value="0" step="1">
+                        <span class="angle-display" id="angleValue">0.0°</span>
+                    </div>
+                    <div class="speed-controls">
+                        <button class="speed-btn" data-speed="0.5">0.5×</button>
+                        <button class="speed-btn active" data-speed="1">1×</button>
+                        <button class="speed-btn" data-speed="2">2×</button>
+                        <button class="speed-btn" data-speed="4">4×</button>
+                    </div>
+                </div>
+                <div class="legend">
+                    <div class="legend-item"><div class="legend-line" style="background:var(--rigid-color); border-bottom: 4px solid rgba(99, 102, 241, 0.3)"></div>Coupler (B-C-Q)</div>
+                    <div class="legend-item"><div class="legend-line" style="background:var(--beam-color)"></div>Flexible beam (DQ)</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--pin-color)"></div>Pin joints</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--ground-color); border: 2px solid var(--ground-color)"></div>Ground</div>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <div class="card">
+                    <h3>Current State</h3>
+                    <div class="stat-row">
+                        <span class="stat-label">Crank angle θ₁</span>
+                        <span class="stat-value" id="statAngle">0.0°</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Input torque</span>
+                        <span class="stat-value" id="statTorque">0.000 Nm</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Solver residual</span>
+                        <span class="stat-value" id="statResidual">—</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Frame</span>
+                        <span class="stat-value" id="statFrame">1 / 360</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Torque vs Crank Angle</h3>
+                    <div class="torque-chart-container">
+                        <canvas id="torqueCanvas"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Mechanism Parameters</h3>
+                    <div class="stat-row">
+                        <span class="stat-label">Beam length L</span>
+                        <span class="stat-value" id="paramL">—</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Thickness t</span>
+                        <span class="stat-value" id="paramT">—</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Young's mod E</span>
+                        <span class="stat-value" id="paramE">—</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">CBCM elements</span>
+                        <span class="stat-value" id="paramN">—</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">θ₂ (coupler angle)</span>
+                        <span class="stat-value" id="paramTheta2">—</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (async function() {
+        // ---- Load data ----
+        const resp = await fetch('mechanism_data.json');
+        const data = await resp.json();
+        document.getElementById('loadingOverlay').classList.add('hidden');
+
+        const frames = data.frames;
+        const params = data.mechanism_params;
+        const nFrames = frames.length;
+
+        // Populate params
+        document.getElementById('paramL').textContent = (params.L * 1000).toFixed(1) + ' mm';
+        document.getElementById('paramT').textContent = (params.t * 1000).toFixed(2) + ' mm';
+        document.getElementById('paramE').textContent = (params.E / 1e9).toFixed(1) + ' GPa';
+        document.getElementById('paramN').textContent = params.N_elem;
+        document.getElementById('paramTheta2').textContent = params.theta2_deg.toFixed(1) + '°';
+
+        // ---- Canvas setup ----
+        const mechCanvas = document.getElementById('mechCanvas');
+        const ctx = mechCanvas.getContext('2d');
+        const torqueCanvas = document.getElementById('torqueCanvas');
+        const tctx = torqueCanvas.getContext('2d');
+
+        function resizeCanvases() {
+            const wrapper = mechCanvas.parentElement;
+            const w = wrapper.clientWidth - 32;
+            const h = Math.min(w * 0.65, 550);
+            mechCanvas.width = w * 2;  // 2x for retina
+            mechCanvas.height = h * 2;
+            mechCanvas.style.height = h + 'px';
+
+            const tw = torqueCanvas.parentElement.clientWidth;
+            torqueCanvas.width = tw * 2;
+            torqueCanvas.height = 280;
+            torqueCanvas.style.height = '140px';
+        }
+        resizeCanvases();
+        window.addEventListener('resize', resizeCanvases);
+
+        // ---- Compute bounds (robust against outliers) ----
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        const ABS_LIMIT = 0.25; // Mechanism total span is ~0.18m (A to Q), so 0.25 is safe.
+        
+        function updateBounds(x, y) {
+            if (Math.abs(x) > ABS_LIMIT || Math.abs(y) > ABS_LIMIT) return;
+            minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+            minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+        }
+
+        for (const frame of frames) {
+            for (const key of ['A', 'B', 'C', 'Q', 'D']) {
+                updateBounds(...frame.joints[key]);
+            }
+            if (frame.beam_shape) {
+                for (let i = 0; i < frame.beam_shape.x.length; i++) {
+                    updateBounds(frame.beam_shape.x[i], frame.beam_shape.y[i]);
+                }
+            }
+        }
+        
+        // Fallback if everything was filtered
+        if (minX === Infinity) { minX = -0.05; maxX = 0.15; minY = -0.1; maxY = 0.05; }
+        const padFrac = 0.15;
+        const rangeX = maxX - minX;
+        const rangeY = maxY - minY;
+        minX -= rangeX * padFrac; maxX += rangeX * padFrac;
+        minY -= rangeY * padFrac; maxY += rangeY * padFrac;
+
+        function toCanvas(x, y) {
+            const cw = mechCanvas.width;
+            const ch = mechCanvas.height;
+            const scaleX = cw / (maxX - minX);
+            const scaleY = ch / (maxY - minY);
+            const scale = Math.min(scaleX, scaleY) * 0.9;
+            const cx = cw / 2;
+            const cy = ch / 2;
+            const midX = (minX + maxX) / 2;
+            const midY = (minY + maxY) / 2;
+            return [
+                cx + (x - midX) * scale,
+                cy - (y - midY) * scale  // flip y
+            ];
+        }
+
+        // ---- Drawing ----
+        let currentFrame = 0;
+
+        function drawMechanism(frameIdx) {
+            const frame = frames[frameIdx];
+            const cw = mechCanvas.width;
+            const ch = mechCanvas.height;
+            ctx.clearRect(0, 0, cw, ch);
+
+            // Grid
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.05)';
+            ctx.lineWidth = 1;
+            const gridStep = 40;
+            for (let gx = 0; gx < cw; gx += gridStep) {
+                ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, ch); ctx.stroke();
+            }
+            for (let gy = 0; gy < ch; gy += gridStep) {
+                ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(cw, gy); ctx.stroke();
+            }
+
+            const A = toCanvas(...frame.joints.A);
+            const B = toCanvas(...frame.joints.B);
+            const C = toCanvas(...frame.joints.C);
+            const Q = toCanvas(...frame.joints.Q);
+            const D = toCanvas(...frame.joints.D);
+
+            // --- Ground drawing ---
+            function drawPinGround(pt, label) {
+                ctx.strokeStyle = '#475569';
+                ctx.lineWidth = 2;
+                const sz = 18;
+                // Triangle
+                ctx.beginPath();
+                ctx.moveTo(pt[0] - sz, pt[1] + sz);
+                ctx.lineTo(pt[0] + sz, pt[1] + sz);
+                ctx.lineTo(pt[0], pt[1]);
+                ctx.closePath();
+                ctx.stroke();
+                // Hatch lines
+                ctx.lineWidth = 1;
+                for (let i = -2; i <= 2; i++) {
+                    const x0 = pt[0] + i * 8 - 4;
+                    ctx.beginPath();
+                    ctx.moveTo(x0, pt[1] + sz);
+                    ctx.lineTo(x0 - 6, pt[1] + sz + 8);
+                    ctx.stroke();
+                }
+                // Label
+                ctx.fillStyle = '#64748b';
+                ctx.font = 'bold 22px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText(label, pt[0], pt[1] + sz + 28);
+            }
+
+            function drawClampedGround(pt, label) {
+                ctx.strokeStyle = '#475569';
+                ctx.lineWidth = 3;
+                const sz = 25;
+                // Vertical line (clamped wall)
+                ctx.beginPath();
+                ctx.moveTo(pt[0], pt[1] - sz);
+                ctx.lineTo(pt[0], pt[1] + sz);
+                ctx.stroke();
+                
+                // Hatch lines to the left of the wall
+                ctx.lineWidth = 1;
+                for (let i = -3; i <= 3; i++) {
+                    const y0 = pt[1] + i * 8;
+                    ctx.beginPath();
+                    ctx.moveTo(pt[0], y0);
+                    ctx.lineTo(pt[0] - 8, y0 + 8);
+                    ctx.stroke();
+                }
+                // Label
+                ctx.fillStyle = '#64748b';
+                ctx.font = 'bold 22px Inter';
+                ctx.textAlign = 'right';
+                ctx.fillText(label, pt[0] - 15, pt[1] + 5);
+            }
+            
+            drawPinGround(A, 'A');
+            drawClampedGround(D, 'D');
+
+            // --- Ground link A-D (dashed) ---
+            ctx.setLineDash([8, 6]);
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(...A);
+            ctx.lineTo(...D);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // --- Rigid links ---
+            function drawRigidLink(p1, p2, width) {
+                ctx.strokeStyle = '#6366f1';
+                ctx.lineWidth = width || 5;
+                ctx.lineCap = 'round';
+                ctx.shadowColor = 'rgba(99, 102, 241, 0.3)';
+                ctx.shadowBlur = 8;
+                ctx.beginPath();
+                ctx.moveTo(...p1);
+                ctx.lineTo(...p2);
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+
+            // Crank A-B
+            drawRigidLink(A, B, 6);
+            
+            // Coupler B-C-Q (single rigid body)
+            ctx.strokeStyle = '#6366f1';
+            ctx.lineWidth = 5;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(...B);
+            ctx.lineTo(...C);
+            ctx.lineTo(...Q);
+            ctx.stroke();
+            
+            // Rigid body fill (translucent)
+            ctx.fillStyle = 'rgba(99, 102, 241, 0.2)';
+            ctx.fill();
+            
+            // Coupler labels
+            ctx.fillStyle = '#818cf8';
+            ctx.font = '600 18px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText('Rigid Coupler', (B[0] + C[0]) / 2, (B[1] + C[1]) / 2 - 20);
+
+            // --- Flexible beam DQ (deflected shape) ---
+            const bx = frame.beam_shape.x;
+            const by = frame.beam_shape.y;
+            if (bx.length > 1) {
+                // Glow
+                ctx.strokeStyle = 'rgba(245, 158, 11, 0.25)';
+                ctx.lineWidth = 10;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.beginPath();
+                let [sx, sy] = toCanvas(bx[0], by[0]);
+                ctx.moveTo(sx, sy);
+                for (let i = 1; i < bx.length; i++) {
+                    [sx, sy] = toCanvas(bx[i], by[i]);
+                    ctx.lineTo(sx, sy);
+                }
+                ctx.stroke();
+
+                // Main beam curve
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                [sx, sy] = toCanvas(bx[0], by[0]);
+                ctx.moveTo(sx, sy);
+                for (let i = 1; i < bx.length; i++) {
+                    [sx, sy] = toCanvas(bx[i], by[i]);
+                    ctx.lineTo(sx, sy);
+                }
+                ctx.stroke();
+
+                // Element nodes (every n_per_elem points)
+                const nPerElem = Math.floor((bx.length - 1) / params.N_elem);
+                ctx.fillStyle = '#fbbf24';
+                for (let i = 0; i <= params.N_elem; i++) {
+                    const ni = Math.min(i * nPerElem, bx.length - 1);
+                    const [nx, ny] = toCanvas(bx[ni], by[ni]);
+                    ctx.beginPath();
+                    ctx.arc(nx, ny, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // --- Pin joints ---
+            function drawPin(pt, label, radius, yOffset) {
+                const r = radius || 8;
+                const dy = yOffset !== undefined ? yOffset : -(r + 8);
+                ctx.beginPath();
+                ctx.arc(pt[0], pt[1], r, 0, Math.PI * 2);
+                ctx.fillStyle = '#0f172a';
+                ctx.fill();
+                ctx.strokeStyle = '#22d3ee';
+                ctx.lineWidth = 2.5;
+                ctx.shadowColor = 'rgba(34, 211, 238, 0.4)';
+                ctx.shadowBlur = 6;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+                // Label
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = 'bold 20px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText(label, pt[0], pt[1] + dy);
+            }
+
+            drawPin(B, 'B');
+            drawPin(Q, 'Q', 8, 25); // Move Q label below (25px offset)
+            drawPin(C, 'C', 5);
+
+            // Ground pins (larger, on top of ground symbol)
+            ctx.beginPath();
+            ctx.arc(A[0], A[1], 7, 0, Math.PI * 2);
+            ctx.fillStyle = '#22d3ee';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(D[0], D[1], 7, 0, Math.PI * 2);
+            ctx.fillStyle = '#22d3ee';
+            ctx.fill();
+
+            // --- Crank angle arc ---
+            const arcRadius = 35;
+            const crankAngle = frame.theta1_deg * Math.PI / 180;
+            ctx.beginPath();
+            ctx.arc(A[0], A[1], arcRadius, 0, -crankAngle, crankAngle > 0);
+            ctx.strokeStyle = 'rgba(99, 102, 241, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            // θ₁ label near arc
+            const labelAngle = -crankAngle / 2;
+            ctx.fillStyle = '#818cf8';
+            ctx.font = '18px Inter';
+            ctx.textAlign = 'left';
+            ctx.fillText('θ₁', A[0] + arcRadius + 5, A[1] - 5);
+        }
+
+        // ---- Torque chart ----
+        function drawTorqueChart(currentIdx) {
+            const cw = torqueCanvas.width;
+            const ch = torqueCanvas.height;
+            tctx.clearRect(0, 0, cw, ch);
+
+            const torques = frames.map(f => f.torque_Nm);
+            const minT = Math.min(...torques);
+            const maxT = Math.max(...torques);
+            const rangeT = maxT - minT || 1;
+            const padT = rangeT * 0.1;
+
+            const leftPad = 60;
+            const rightPad = 10;
+            const topPad = 10;
+            const botPad = 26;
+            const plotW = cw - leftPad - rightPad;
+            const plotH = ch - topPad - botPad;
+
+            // Background
+            tctx.fillStyle = 'rgba(15, 23, 42, 0.5)';
+            tctx.fillRect(leftPad, topPad, plotW, plotH);
+
+            // Zero line
+            const zeroY = topPad + plotH * (1 - (0 - minT + padT) / (rangeT + 2 * padT));
+            tctx.strokeStyle = 'rgba(148, 163, 184, 0.15)';
+            tctx.lineWidth = 1;
+            tctx.setLineDash([4, 4]);
+            tctx.beginPath();
+            tctx.moveTo(leftPad, zeroY);
+            tctx.lineTo(leftPad + plotW, zeroY);
+            tctx.stroke();
+            tctx.setLineDash([]);
+
+            // Torque curve
+            tctx.beginPath();
+            for (let i = 0; i < nFrames; i++) {
+                const x = leftPad + (i / (nFrames - 1)) * plotW;
+                const y = topPad + plotH * (1 - (torques[i] - minT + padT) / (rangeT + 2 * padT));
+                if (i === 0) tctx.moveTo(x, y);
+                else tctx.lineTo(x, y);
+            }
+            tctx.strokeStyle = '#818cf8';
+            tctx.lineWidth = 2.5;
+            tctx.stroke();
+
+            // Current position marker
+            const cx = leftPad + (currentIdx / (nFrames - 1)) * plotW;
+            const cy = topPad + plotH * (1 - (torques[currentIdx] - minT + padT) / (rangeT + 2 * padT));
+            tctx.beginPath();
+            tctx.arc(cx, cy, 6, 0, Math.PI * 2);
+            tctx.fillStyle = torques[currentIdx] >= 0 ? '#34d399' : '#f87171';
+            tctx.shadowColor = torques[currentIdx] >= 0 ? 'rgba(52, 211, 153, 0.5)' : 'rgba(248, 113, 113, 0.5)';
+            tctx.shadowBlur = 10;
+            tctx.fill();
+            tctx.shadowBlur = 0;
+
+            // Vertical line at current position
+            tctx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
+            tctx.lineWidth = 1;
+            tctx.beginPath();
+            tctx.moveTo(cx, topPad);
+            tctx.lineTo(cx, topPad + plotH);
+            tctx.stroke();
+
+            // Axes labels
+            tctx.fillStyle = '#64748b';
+            tctx.font = '18px Inter';
+            tctx.textAlign = 'center';
+            tctx.fillText('0°', leftPad, ch - 4);
+            tctx.fillText('180°', leftPad + plotW / 2, ch - 4);
+            tctx.fillText('360°', leftPad + plotW, ch - 4);
+
+            tctx.textAlign = 'right';
+            tctx.fillText(maxT.toFixed(2), leftPad - 4, topPad + 14);
+            tctx.fillText(minT.toFixed(2), leftPad - 4, topPad + plotH);
+            if (zeroY > topPad + 20 && zeroY < topPad + plotH - 10) {
+                tctx.fillText('0', leftPad - 4, zeroY + 5);
+            }
+        }
+
+        // ---- State updates ----
+        function updateDisplay(frameIdx) {
+            currentFrame = frameIdx;
+            const frame = frames[frameIdx];
+
+            document.getElementById('angleSlider').value = frameIdx;
+            document.getElementById('angleValue').textContent = frame.theta1_deg.toFixed(1) + '°';
+            document.getElementById('statAngle').textContent = frame.theta1_deg.toFixed(1) + '°';
+            
+            const torque = frame.torque_Nm;
+            const torqueEl = document.getElementById('statTorque');
+            torqueEl.textContent = torque.toFixed(4) + ' Nm';
+            torqueEl.style.color = torque >= 0 ? 'var(--torque-pos)' : 'var(--torque-neg)';
+
+            document.getElementById('statResidual').textContent = frame.residual.toExponential(1);
+            document.getElementById('statFrame').textContent = `${frameIdx + 1} / ${nFrames}`;
+
+            drawMechanism(frameIdx);
+            drawTorqueChart(frameIdx);
+        }
+
+        // ---- Controls ----
+        let isPlaying = false;
+        let speed = 1;
+        let lastTime = 0;
+        const frameDuration = 80; // ms per frame at 1x speed
+
+        function animate(time) {
+            if (!isPlaying) return;
+            if (time - lastTime > frameDuration / speed) {
+                lastTime = time;
+                currentFrame = (currentFrame + 1) % nFrames;
+                updateDisplay(currentFrame);
+            }
+            requestAnimationFrame(animate);
+        }
+
+        document.getElementById('btnPlay').addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            const label = document.getElementById('playLabel');
+            const icon = document.getElementById('playIcon');
+            if (isPlaying) {
+                label.textContent = 'Pause';
+                icon.innerHTML = '<rect x="5" y="4" width="4" height="16"/><rect x="15" y="4" width="4" height="16"/>';
+                lastTime = 0;
+                requestAnimationFrame(animate);
+            } else {
+                label.textContent = 'Play';
+                icon.innerHTML = '<polygon points="6,4 20,12 6,20"/>';
+            }
+        });
+
+        document.getElementById('btnStep').addEventListener('click', () => {
+            isPlaying = false;
+            document.getElementById('playLabel').textContent = 'Play';
+            document.getElementById('playIcon').innerHTML = '<polygon points="6,4 20,12 6,20"/>';
+            currentFrame = (currentFrame + 1) % nFrames;
+            updateDisplay(currentFrame);
+        });
+
+        document.getElementById('angleSlider').addEventListener('input', (e) => {
+            isPlaying = false;
+            document.getElementById('playLabel').textContent = 'Play';
+            document.getElementById('playIcon').innerHTML = '<polygon points="6,4 20,12 6,20"/>';
+            updateDisplay(parseInt(e.target.value));
+        });
+
+        document.querySelectorAll('.speed-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                speed = parseFloat(btn.dataset.speed);
+            });
+        });
+
+        // Set slider range
+        document.getElementById('angleSlider').max = nFrames - 1;
+
+        // Initial draw
+        updateDisplay(0);
+        window.addEventListener('resize', () => {
+            resizeCanvases();
+            updateDisplay(currentFrame);
+        });
+    })();
+    </script>
+</body>
+</html>
