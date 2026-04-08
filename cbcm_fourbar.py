@@ -114,8 +114,8 @@ def residual(x, theta1):
     idx = 0
     for i in range(1, 3):
         ch, sh = np.cos(h[i]), np.sin(h[i])
-        res[idx]   = ch*f[i] - sh*p[i] - f[0]
-        res[idx+1] = sh*f[i] + ch*p[i] - p[0]
+        res[idx]   =  ch*f[i] + sh*p[i] - f[0]
+        res[idx+1] = -sh*f[i] + ch*p[i] - p[0]
         res[idx+2] = (1+dx[i])*f[i] - dy[i]*p[i] + m[i] - m[i-1]
         idx += 3
     
